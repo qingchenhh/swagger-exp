@@ -14,8 +14,6 @@
 
 再说一遍**只支持/v2/api-docs不支持swagger-ui.html**
 
-**脚本不会保存swagger接口的信息内容到csv等文本中！！！关了就没了**
-
 # 工具的使用
 
 三个参数。
@@ -40,7 +38,7 @@ python swagger-exp.py -u http://xxx.xxx.xxx.xxx/v2/api-docs -p http://127.0.0.1:
 
 同时呢，如果你需要手动测试，可以把你想测试的请求再burp的HTTP history中发送到Repeater进行手动测试。
 
-这里再说一下，**脚本不会记录swagger接口的信息内容到csv等文本中！！！关了就没了**
+这里再说一下，脚本不会像swagger-hack一样保存swagger接口的信息内容到csv等文本中！
 
 ![1680164449597](images/1680164449597.png)
 
