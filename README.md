@@ -12,7 +12,7 @@
 
 而且，我是想脚本可以走代理让xray啥的帮我测接口里的sql注入之类的，要手动测也可以那种。所以就自己写了一个垃圾脚本，我这个脚本呢目前只支持/v2/api-docs的接口测试，不支持swagger-ui.html，说白了就是个垃圾，这样理解就对了。
 
-再说一遍**只支持/v2/api-docs不支持swagger-ui.html**
+再说一遍**只支持/v2/api-docs，不支持swagger-ui.html**
 
 # 工具的使用
 
