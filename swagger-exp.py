@@ -58,6 +58,36 @@ def screen(path):
             break
     return flag
 
+def get_definitions(data,definition,method):
+    definition = definition.replace('#/definitions/','')
+    if method == "post":
+        parameters = {}
+        for i in data['definitions']:
+            if i == definition:
+                for parameter in data['definitions'][i]['properties']:
+                    if data['definitions'][i]['properties'][parameter]['type'] == "integer":
+                        parameters[parameter] = 1
+                    elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
+                        parameters[parameter] = 2.0
+                    elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
+                        parameters[parameter] = 'array'
+                    else:
+                        parameters[parameter] = "string"
+    elif method == "get":
+        parameters = []
+        for i in data['definitions']:
+            if i == definition:
+                for parameter in data['definitions'][i]['properties']:
+                    if data['definitions'][i]['properties'][parameter]['type'] == "integer":
+                        parameters.append(parameter + "=1")
+                    elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
+                        parameters.append(parameter + "=2.0")
+                    elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
+                        parameters.append(parameter + "=array")
+                    else:
+                        parameters.append(parameter + "=string")
+    return parameters
+
 def run(url,proxies,verbosity):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
@@ -83,11 +113,18 @@ def run(url,proxies,verbosity):
                         parameter = re.sub('\}', '', parameter)
                         new_url = url + parameter
                     else:
-                        for parameter in rep['paths'][path][method]['parameters']:
-                            if parameter['type'] == "integer":
-                                parameters.append(parameter['name'] + "=1")
-                            else:
-                                parameters.append(parameter['name'] + "=string")
+                        try:
+                            definition = rep['paths'][path][method]['parameters'][0]['schema']['$ref']
+                        except Exception as e:
+                            definition = ""
+                        if definition != "":
+                            parameters = get_definitions(rep,definition, 'get')
+                        else:
+                            for parameter in rep['paths'][path][method]['parameters']:
+                                if parameter['type'] == "integer":
+                                    parameters.append(parameter['name'] + "=1")
+                                else:
+                                    parameters.append(parameter['name'] + "=string")
                         new_url = url1 + path + '?' + '&'.join(parameters)
                     Scanner(new_url,content_type,'get',proxies,verbosity,summary,url1 + path)
                 except Exception as e:
@@ -101,11 +138,20 @@ def run(url,proxies,verbosity):
                 parameters = {}
                 summary = rep['paths'][path][method]['summary']
                 try:
-                    for parameter in rep['paths'][path][method]['parameters']:
-                        if parameter['type'] == "integer":
-                            parameters[parameter['name']] = "1"
-                        else:
-                            parameters[parameter['name']] = "string"
+                    try:
+                        definition = rep['paths'][path][method]['parameters'][0]['schema']['$ref']
+                    except Exception as e:
+                        definition = ""
+                    if definition != "":
+                        parameters = get_definitions(rep,definition, 'post')
+                    else:
+                        for parameter in rep['paths'][path][method]['parameters']:
+                            if parameter['type'] == "integer":
+                                parameters[parameter['name']] = 1
+                            elif parameter['type'] == 'number':
+                                parameters[parameter['name']] = 2.0
+                            else:
+                                parameters[parameter['name']] = "string"
                     data = json.dumps(parameters)
                     new_url = url1 + path
                     Scanner(new_url,content_type,'post',proxies,verbosity,summary,data=data)
