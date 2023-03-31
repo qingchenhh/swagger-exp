@@ -32,7 +32,7 @@ def Scanner(url,content_type,method,proxies,verbosity,summary,data=""):
             print('响应状态码：' + str(rep.status_code))
             print('响应内容：' + rep.content.decode())
         else:
-            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试，请求方式：GET' + ' 测试连接：' + data + ' ,响应状态码：'+ str(rep.status_code))
+            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试，请求方式：GET，' + ' URL：' + data + ' ，响应状态码：'+ str(rep.status_code))
     else:
         rep = requests.post(url,headers=headers,verify=False,data=data,proxies=proxies)
         if verbosity == '1':
@@ -45,7 +45,7 @@ def Scanner(url,content_type,method,proxies,verbosity,summary,data=""):
             print('响应状态码：' + str(rep.status_code))
             print('响应内容：' + rep.content.decode())
         else:
-            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试，请求方式：POST' + ' URL：' + url + ' ,响应状态码：' + str(
+            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试，请求方式：POST，' + ' URL：' + url + ' ，响应状态码：' + str(
                 rep.status_code))
 
 def screen(path):
