@@ -111,7 +111,7 @@ def run(url,proxies,verbosity):
                     if re.search('\{.*?\}',path):
                         parameter = re.sub('\{','',path)
                         parameter = re.sub('\}', '', parameter)
-                        new_url = url + parameter
+                        new_url = url1 + parameter
                     else:
                         try:
                             definition = rep['paths'][path][method]['parameters'][0]['schema']['$ref']
