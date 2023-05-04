@@ -94,7 +94,8 @@ def run(url,proxies,verbosity):
         'content-type': 'application/json'
     }
     rep = requests.get(url=url, verify=False, headers=headers).json()
-    url1 = re.findall('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?',url)[0]
+    url1 = re.findall('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]',url)[0]
+    url1 = url1.rstrip('/')
     for path in rep['paths']:
         flag = screen(path)
         if flag != 1:
