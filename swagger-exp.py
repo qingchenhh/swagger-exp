@@ -53,7 +53,7 @@ def screen(path):
     str_list = str.split('/')
     flag = 0
     for i in str_list:
-        if i.startswith('get') or i.startswith('query') or i.startswith('select') or i.startswith('search'):
+        if i.startswith('get') or i.startswith('query') or i.startswith('select') or i.startswith('search') or i.startswith('show') or i.startswith('list') or (i[-4:]=='list') or (i=="info"):
             flag = 1
             break
     return flag
@@ -110,23 +110,28 @@ def run(url,proxies,verbosity):
                 summary = rep['paths'][path][method]['summary']
                 try:
                     if re.search('\{.*?\}',path):
+                        # parameter = re.sub('\{.*?\}', '1', path)
                         parameter = re.sub('\{','',path)
                         parameter = re.sub('\}', '', parameter)
                         new_url = url1 + parameter
                     else:
                         try:
-                            definition = rep['paths'][path][method]['parameters'][0]['schema']['$ref']
+                            is_parameters = rep['paths'][path][method]['parameters']
+                            try:
+                                definition = rep['paths'][path][method]['parameters'][0]['schema']['$ref']
+                            except Exception as e:
+                                definition = ""
+                            if definition != "":
+                                parameters = get_definitions(rep,definition, 'get')
+                            else:
+                                for parameter in rep['paths'][path][method]['parameters']:
+                                    if parameter['type'] == "integer":
+                                        parameters.append(parameter['name'] + "=1")
+                                    else:
+                                        parameters.append(parameter['name'] + "=string")
+                            new_url = url1 + path + '?' + '&'.join(parameters)
                         except Exception as e:
-                            definition = ""
-                        if definition != "":
-                            parameters = get_definitions(rep,definition, 'get')
-                        else:
-                            for parameter in rep['paths'][path][method]['parameters']:
-                                if parameter['type'] == "integer":
-                                    parameters.append(parameter['name'] + "=1")
-                                else:
-                                    parameters.append(parameter['name'] + "=string")
-                        new_url = url1 + path + '?' + '&'.join(parameters)
+                            new_url = url1 + path
                     Scanner(new_url,content_type,'get',proxies,verbosity,summary,url1 + path)
                 except Exception as e:
                     pass
