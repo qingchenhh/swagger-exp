@@ -53,7 +53,7 @@ def screen(path):
     str_list = str.split('/')
     flag = 0
     for i in str_list:
-        if i.startswith('get') or i.startswith('query') or i.startswith('select') or i.startswith('search') or i.startswith('show') or i.startswith('list') or (i[-4:]=='list') or (i=="info"):
+        if i.startswith('get') or i.startswith('query') or i.startswith('select') or i.startswith('search') or i.startswith('show') or i.startswith('list') or (i=="info"):
             flag = 1
             break
     return flag
