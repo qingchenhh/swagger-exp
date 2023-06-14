@@ -107,7 +107,10 @@ def run(url,proxies,verbosity):
                 except Exception as e:
                     content_type = "text/html; charset=utf-8"
                 parameters = []
-                summary = rep['paths'][path][method]['summary']
+                try:
+                    summary = rep['paths'][path][method]['summary']
+                except Exception as e:
+                    summary = ""
                 try:
                     if re.search('\{.*?\}',path):
                         # parameter = re.sub('\{.*?\}', '1', path)
@@ -142,7 +145,10 @@ def run(url,proxies,verbosity):
                 except Exception as e:
                     content_type = "text/html; charset=utf-8"
                 parameters = {}
-                summary = rep['paths'][path][method]['summary']
+                try:
+                    summary = rep['paths'][path][method]['summary']
+                except Exception as e:
+                    summary = ""
                 try:
                     try:
                         definition = rep['paths'][path][method]['parameters'][0]['schema']['$ref']
