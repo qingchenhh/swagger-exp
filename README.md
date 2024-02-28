@@ -67,7 +67,7 @@ python swagger-exp.py -u http://xxx.xxx.xxx.xxx/v2/api-docs -p http://127.0.0.1:
 python swagger-exp.py -u http://xxx.xxx.xxx.xxx/v2/api-docs -p http://127.0.0.1:8080 -v 1
 ```
 
-![1680164361337](images/1680164361337.png)
+![1709131815098](images/1709131815098.png)
 
 还有一种情况，因为脚本是自动拿出参数来，然后参数值是随便填的，就会导致有可能带有参数的时候没啥数据，而不带参数反而有数据。
 
