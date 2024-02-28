@@ -28,7 +28,10 @@ def print_raw(raw,url,type):
         headers = raw['headers']
         for key,values in headers.items():
             print_str += key + ": " + values + "\n"
-        print_str += "\n" + str(raw['body'])
+        if raw['body'] != None:
+            print_str += "\n" + str(raw['body'])
+        else:
+            print_str += "\n"
     elif type=="rep":
         print('<<<<<响应包<<<<<')
         print_str += "HTTP/1.1 " + str(raw['status_code']) + "\n"
@@ -43,7 +46,7 @@ def print_api(data):
         print("========================\n接口：" + api_data[0])
         print("描述：" + api_data[2])
         print("请求包：")
-        print_str = api_data[4].upper() + " " + api_data[0] + " HTTP/1.1\n"
+        print_str = api_data[4].upper() + " " + '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',api_data[0]) + " HTTP/1.1\n"
         for key, values in api_data[1].items():
             print_str += key + ": " + values + "\n"
         print_str += "\n" + api_data[3]
@@ -55,7 +58,7 @@ def Scanner(url,headers,method,proxies,verbosity,summary,data=""):
     elif method == "options":
         rep = requests.options(url, headers=headers, verify=False, data=data, proxies=proxies,
                                allow_redirects=False)
-    elif method == "put":
+    elif method == "put" and (args.mode == "all"):
         rep = requests.put(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
     elif method == "post":
         rep = requests.post(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
@@ -64,8 +67,8 @@ def Scanner(url,headers,method,proxies,verbosity,summary,data=""):
         return False
     if verbosity == '1':
         print(Style.BRIGHT + Fore.GREEN + '[+] =========' + url + '=========')
-        print_raw(rep.request.__dict__,url,type='req')
-        print_raw(rep.__dict__, url, type='rep')
+        print_raw(rep.request.__dict__,'/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url),type='req')
+        print_raw(rep.__dict__, '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url), type='rep')
     else:
         print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条'+ method.upper() +'请求，' + ' URL：' + url + ' ，响应状态码：'+ str(rep.status_code))
 
@@ -89,14 +92,19 @@ def get_definitions(data,definition,method):
         for i in data['definitions']:
             if i == definition:
                 for parameter in data['definitions'][i]['properties']:
-                    if data['definitions'][i]['properties'][parameter]['type'] == "integer":
-                        parameters[parameter] = 1
-                    elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
-                        parameters[parameter] = 2.0
-                    elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
-                        parameters[parameter] = 'array'
-                    else:
-                        parameters[parameter] = "string"
+                    # print(parameter)
+                    try:
+                        ref = data['definitions'][i]['properties'][parameter]['$ref']
+                        parameters[parameter] = get_definitions(data,ref,'post')
+                    except Exception as e:
+                        if data['definitions'][i]['properties'][parameter]['type'] == "integer":
+                            parameters[parameter] = 1
+                        elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
+                            parameters[parameter] = 2.0
+                        elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
+                            parameters[parameter] = 'array'
+                        else:
+                            parameters[parameter] = "string"
     elif method == "get":
         parameters = []
         for i in data['definitions']:
@@ -144,13 +152,18 @@ def get_method(rep,path,method,url1):
                 else:
                     for parameter in rep['paths'][path][method]['parameters']:
                         try:
-                            default_str = parameter['default']
+                            default_str = parameter['default'] # 获取默认值
                         except Exception as e:
-                            if parameter['type'] == "integer":
+                            # print(parameter['type'])
+                            try:
+                                type = parameter['schema']['type'] # 3.0版本
+                            except Exception as e:
+                                type = parameter['type'] # 2.0和1.0版本
+                            if type == "integer":
                                 default_str = 1
                             else:
                                 default_str = "string"
-                        if  parameter['in'] == "header":
+                        if  parameter['in'] == "header": # 参数位置在header
                             headers[parameter['name']] = default_str
                         else:
                             parameters.append(parameter['name'] + "=" + str(default_str))
@@ -187,9 +200,13 @@ def post_method(rep,path,method,url1):
                 try:
                     default_str = parameter['default']
                 except Exception as e:
-                    if parameter['type'] == "integer":
+                    try:
+                        type = parameter['schema']['type'] # 3.0版本
+                    except Exception as e:
+                        type = parameter['type'] # 2.0和1.0版本
+                    if type == "integer":
                         default_str = 1
-                    elif parameter['type'] == 'number':
+                    elif type == 'number':
                         default_str = 2.0
                     else:
                         default_str = "string"
@@ -200,13 +217,16 @@ def post_method(rep,path,method,url1):
         if "application/json" in content_type:
             data = json.dumps(parameters)
         else:
-            data = '&'.join(parameters)
+            data = ""
+            for key,values in parameters.items():
+                data +=key+"="+str(values)+"&"
+            data = data[:-1]
         new_url = url1 + path
         return new_url,headers,summary,data,method
     except Exception as e:
+        # print(e)
         return False
         # print(Style.BRIGHT + Fore.RED + "[-] 出现一小个错误！POST参数，url为：" + url + path + " , Error Message：" ,e)
-        pass
 
 def run(url,proxies,verbosity,fpath,mode):
     headers = {
@@ -226,6 +246,8 @@ def run(url,proxies,verbosity,fpath,mode):
             continue
         for method in rep['paths'][path]:
             if method == "get":
+                # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
+                requests.get(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'} ,proxies=proxies)
                 get_methods = get_method(rep, path, method, url1)
                 if get_methods != False:
                     if 'get' in flag or (mode == "all"):
@@ -235,6 +257,8 @@ def run(url,proxies,verbosity,fpath,mode):
                     if 'download' in flag:
                         downloads.append(get_methods)
             else:
+                # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
+                requests.post(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'}, proxies=proxies)
                 post_methods = post_method(rep, path, method, url1)
                 if post_methods != False:
                     if ('get' in flag) or (mode == "all"):
@@ -248,6 +272,7 @@ def run(url,proxies,verbosity,fpath,mode):
 
     if uploads != []:
         print(Style.BRIGHT + Fore.GREEN + "\n[+] ===发现疑似上传接口！请人为验证并手动利用。===")
+        print(Style.BRIGHT + Fore.GREEN + "[+] !!!注意！文件上传构造的数据包并不准确，需要手动构造。!!!")
         print_api(uploads)
     if downloads != []:
         print(Style.BRIGHT + Fore.GREEN + "\n[+] ===发现疑似下载接口！请人为验证并手动利用。===")
