@@ -9,46 +9,65 @@ warnings.filterwarnings('ignore')
 
 def args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-u','--url',dest="url",required=True, type=str,help="Please enter a url.(e.g. -u http://127.0.0.1/v2/api-docs)")
-    parser.add_argument('-p', '--proxy', dest="proxy", type=str,help="Please enter an HTTP proxy address.(e.g. -p http://127.0.0.1:8080)")
+    parser.add_argument('-u','--url',dest="url",required=True, type=str,help="指定测试的URL(e.g. -u http://127.0.0.1/v2/api-docs)")
+    parser.add_argument('-p', '--proxy', dest="proxy", type=str,help="设置代理(e.g. -p http://127.0.0.1:8080)")
     parser.add_argument('-v', '--verbosity', dest="verbosity", default='0', type=str,
-                        help="Verbosity level: 0 or 1 (default 0)")
+                        help="输出信息级别: 0 or 1 (default 0)")
     parser.add_argument('-path', '--path', dest="path", default='', type=str,
                         help="指定路径，默认api是根路径拼接，如http://xxx.xx/user/api，但是实际路径可能是http://xxx.xx/admin/user/api，那么这个admin就需要该参数来指定。")
+    parser.add_argument('-m', '--mode', dest="mode", default='sec', type=str,
+                        help="指定模式，默认是sec（只测试查询接口），也可以指定为all测试所有接口。")
 
     return parser.parse_args()
 
-def Scanner(url,content_type,method,proxies,verbosity,summary,data=""):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'Content-Type': content_type
-    }
+def print_raw(raw,url,type):
+    print_str = ""
+    if type=="req":
+        print('>>>>>请求包>>>>>')
+        print_str += raw['method'] + " " + url + " HTTP/1.1\n"
+        headers = raw['headers']
+        for key,values in headers.items():
+            print_str += key + ": " + values + "\n"
+        print_str += "\n" + str(raw['body'])
+    elif type=="rep":
+        print('<<<<<响应包<<<<<')
+        print_str += "HTTP/1.1 " + str(raw['status_code']) + "\n"
+        headers = raw['headers']
+        for key, values in headers.items():
+            print_str += key + ": " + values + "\n"
+        print_str += "\n" + raw['_content'].decode('utf-8')
+    print(print_str)
+
+def print_api(data):
+    for api_data in data:
+        print("========================\n接口：" + api_data[0])
+        print("描述：" + api_data[2])
+        print("请求包：")
+        print_str = api_data[4].upper() + " " + api_data[0] + " HTTP/1.1\n"
+        for key, values in api_data[1].items():
+            print_str += key + ": " + values + "\n"
+        print_str += "\n" + api_data[3]
+        print(print_str)
+
+def Scanner(url,headers,method,proxies,verbosity,summary,data=""):
     if method == "get":
-        rep = requests.get(url,headers=headers,verify=False,proxies=proxies)
-        if verbosity == '1':
-            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试:')
-            print('URL：' + url)
-            print('接口说明：' + summary)
-            print('请求方式：GET')
-            print('Content-Type：' + content_type)
-            print('响应状态码：' + str(rep.status_code))
-            print('响应内容：' + rep.content.decode())
-        else:
-            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试，请求方式：GET，' + ' URL：' + data + ' ，响应状态码：'+ str(rep.status_code))
+        rep = requests.get(url,headers=headers,verify=False,proxies=proxies,allow_redirects=False)
+    elif method == "options":
+        rep = requests.options(url, headers=headers, verify=False, data=data, proxies=proxies,
+                               allow_redirects=False)
+    elif method == "put":
+        rep = requests.put(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
+    elif method == "post":
+        rep = requests.post(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
     else:
-        rep = requests.post(url,headers=headers,verify=False,data=data,proxies=proxies)
-        if verbosity == '1':
-            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试:')
-            print('URL：' + url)
-            print('接口说明：' + summary)
-            print('请求方式：POST')
-            print('请求参数：' + data)
-            print('Content-Type：' + content_type)
-            print('响应状态码：' + str(rep.status_code))
-            print('响应内容：' + rep.content.decode())
-        else:
-            print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条api测试，请求方式：POST，' + ' URL：' + url + ' ，响应状态码：' + str(
-                rep.status_code))
+        print(Style.BRIGHT + Fore.RED + "[-] 暂不支持的请求类型！请求类型为：" + method)
+        return False
+    if verbosity == '1':
+        print(Style.BRIGHT + Fore.GREEN + '[+] =========' + url + '=========')
+        print_raw(rep.request.__dict__,url,type='req')
+        print_raw(rep.__dict__, url, type='rep')
+    else:
+        print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条'+ method.upper() +'请求，' + ' URL：' + url + ' ，响应状态码：'+ str(rep.status_code))
 
 def screen(path):
     str = path.lower()
@@ -99,6 +118,10 @@ def get_method(rep,path,method,url1):
     except Exception as e:
         content_type = "text/html; charset=utf-8"
     parameters = []
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+        'Content-Type': content_type
+    }
     try:
         summary = rep['paths'][path][method]['summary']
     except Exception as e:
@@ -106,9 +129,9 @@ def get_method(rep,path,method,url1):
     try:
         if re.search('\{.*?\}', path):
             # parameter = re.sub('\{.*?\}', '1', path)
-            parameter = re.sub('\{', '', path)
-            parameter = re.sub('\}', '', parameter)
-            new_url = url1 + parameter
+            # parameter = re.sub('\{', '', path)
+            # parameter = re.sub('\}', '', parameter)
+            new_url = url1 + path
         else:
             try:
                 is_parameters = rep['paths'][path][method]['parameters']
@@ -120,14 +143,21 @@ def get_method(rep,path,method,url1):
                     parameters = get_definitions(rep, definition, 'get')
                 else:
                     for parameter in rep['paths'][path][method]['parameters']:
-                        if parameter['type'] == "integer":
-                            parameters.append(parameter['name'] + "=1")
+                        try:
+                            default_str = parameter['default']
+                        except Exception as e:
+                            if parameter['type'] == "integer":
+                                default_str = 1
+                            else:
+                                default_str = "string"
+                        if  parameter['in'] == "header":
+                            headers[parameter['name']] = default_str
                         else:
-                            parameters.append(parameter['name'] + "=string")
+                            parameters.append(parameter['name'] + "=" + str(default_str))
                 new_url = url1 + path + '?' + '&'.join(parameters)
             except Exception as e:
                 new_url = url1 + path
-        return new_url,content_type,summary
+        return new_url,headers,summary,"",method
     except Exception as e:
         return False
 
@@ -137,6 +167,10 @@ def post_method(rep,path,method,url1):
     except Exception as e:
         content_type = "text/html; charset=utf-8"
     parameters = {}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+        'Content-Type': content_type
+    }
     try:
         summary = rep['paths'][path][method]['summary']
     except Exception as e:
@@ -150,36 +184,31 @@ def post_method(rep,path,method,url1):
             parameters = get_definitions(rep, definition, 'post')
         else:
             for parameter in rep['paths'][path][method]['parameters']:
-                if parameter['type'] == "integer":
-                    parameters[parameter['name']] = 1
-                elif parameter['type'] == 'number':
-                    parameters[parameter['name']] = 2.0
+                try:
+                    default_str = parameter['default']
+                except Exception as e:
+                    if parameter['type'] == "integer":
+                        default_str = 1
+                    elif parameter['type'] == 'number':
+                        default_str = 2.0
+                    else:
+                        default_str = "string"
+                if parameter['in'] == "header":
+                    headers[parameter['name']] = default_str
                 else:
-                    parameters[parameter['name']] = "string"
-        data = json.dumps(parameters)
+                    parameters[parameter['name']] = default_str
+        if "application/json" in content_type:
+            data = json.dumps(parameters)
+        else:
+            data = '&'.join(parameters)
         new_url = url1 + path
-        return new_url,content_type,summary,data
+        return new_url,headers,summary,data,method
     except Exception as e:
         return False
         # print(Style.BRIGHT + Fore.RED + "[-] 出现一小个错误！POST参数，url为：" + url + path + " , Error Message：" ,e)
         pass
 
-def print_api(lists):
-    for i in lists:
-        print('*'*50)
-        if len(i) == 3:
-            print('URL：' + i[0])
-            print('接口说明：' + i[2])
-            print('请求方式：GET')
-            print('Content-Type：' + i[1])
-        elif len(i) == 4:
-            print('URL：' + i[0])
-            print('接口说明：' + i[2])
-            print('请求方式：POST')
-            print('Content-Type：' + i[1])
-            print('请求参数：' + i[3])
-
-def run(url,proxies,verbosity,fpath):
+def run(url,proxies,verbosity,fpath,mode):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
         'content-type': 'application/json'
@@ -193,29 +222,29 @@ def run(url,proxies,verbosity,fpath):
         url1 = url1 + '/' + fpath
     for path in rep['paths']:
         flag = screen(path)
-        if flag == []:
+        if (flag == []) and (mode != "all"):
             continue
         for method in rep['paths'][path]:
             if method == "get":
                 get_methods = get_method(rep, path, method, url1)
                 if get_methods != False:
-                    if 'get' in flag:
-                        Scanner(get_methods[0], get_methods[1], 'get', proxies, verbosity, get_methods[2], url1 + path)
+                    if 'get' in flag or (mode == "all"):
+                        Scanner(get_methods[0], get_methods[1], get_methods[4], proxies, verbosity, get_methods[2], url1 + path)
                     if 'upload' in flag:
                         uploads.append(get_methods)
                     if 'download' in flag:
                         downloads.append(get_methods)
-            elif method == "post":
+            else:
                 post_methods = post_method(rep, path, method, url1)
                 if post_methods != False:
-                    if 'get' in flag:
-                        Scanner(post_methods[0], post_methods[1], 'post', proxies, verbosity, post_methods[2], post_methods[3])
+                    if ('get' in flag) or (mode == "all"):
+                        Scanner(post_methods[0], post_methods[1], post_methods[4], proxies, verbosity, post_methods[2], post_methods[3])
                     if 'upload' in flag:
                         uploads.append(post_methods)
                     if 'download' in flag:
                         downloads.append(post_methods)
-            else:
-                print(Style.BRIGHT + Fore.RED + "[-] 请求方法既不是GET也不是POST！")
+            # else:
+            #     print(Style.BRIGHT + Fore.RED + "[-] 请求方法既不是GET也不是POST！")
 
     if uploads != []:
         print(Style.BRIGHT + Fore.GREEN + "\n[+] ===发现疑似上传接口！请人为验证并手动利用。===")
@@ -229,4 +258,4 @@ if __name__ == '__main__':
     args = args()
     url = args.url if args.url[-1]!='/' else args.url[:-1]
     proxies = {'http': args.proxy, 'https': args.proxy}
-    run(url,proxies,args.verbosity,args.path)
+    run(url,proxies,args.verbosity,args.path,args.mode)
