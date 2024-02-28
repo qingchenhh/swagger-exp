@@ -20,11 +20,12 @@ def args():
 
     return parser.parse_args()
 
-def print_raw(raw,url,type):
+def print_raw(raw,url,type,host=""):
     print_str = ""
     if type=="req":
         print('>>>>>请求包>>>>>')
         print_str += raw['method'] + " " + url + " HTTP/1.1\n"
+        print_str += "Host: " + host + "\n"
         headers = raw['headers']
         for key,values in headers.items():
             print_str += key + ": " + values + "\n"
@@ -46,7 +47,10 @@ def print_api(data):
         print("========================\n接口：" + api_data[0])
         print("描述：" + api_data[2])
         print("请求包：")
+        ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', api_data[0])
+        host = ret.group('host')
         print_str = api_data[4].upper() + " " + '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',api_data[0]) + " HTTP/1.1\n"
+        print_str += "Host: " + host + "\n"
         for key, values in api_data[1].items():
             print_str += key + ": " + values + "\n"
         print_str += "\n" + api_data[3]
@@ -67,7 +71,9 @@ def Scanner(url,headers,method,proxies,verbosity,summary,data=""):
         return False
     if verbosity == '1':
         print(Style.BRIGHT + Fore.GREEN + '[+] =========' + url + '=========')
-        print_raw(rep.request.__dict__,'/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url),type='req')
+        ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', url)
+        host = ret.group('host')
+        print_raw(rep.request.__dict__,'/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url),type='req',host=host)
         print_raw(rep.__dict__, '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url), type='rep')
     else:
         print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条'+ method.upper() +'请求，' + ' URL：' + url + ' ，响应状态码：'+ str(rep.status_code))
