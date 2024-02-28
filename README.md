@@ -16,8 +16,6 @@
 
 再说一遍**只支持/v2/api-docs这种json格式的，不支持swagger-ui.html这种html格式**
 
-**脚本不会保存swagger接口的信息内容到csv等文本中！！！关了就没了**
-
 # 工具的使用
 
 **正确食用方法：脚本+burp+HaE插件+Xray**
@@ -52,8 +50,6 @@ python swagger-exp.py -u http://xxx.xxx.xxx.xxx/v2/api-docs -p http://127.0.0.1:
 以为burp你可以使用HaE工具，这样做如果接口返回有敏感信息，就可以看到颜色高亮，方便一些。工具地址https://github.com/gh0stkey/HaE
 
 同时呢，如果你需要手动测试，可以把你想测试的请求再burp的HTTP history中发送到Repeater进行手动测试。
-
-这里再说一下，**脚本不会记录swagger接口的信息内容到csv等文本中！！！关了就没了**
 
 ![1680164449597](images/1680164449597.png)
 
