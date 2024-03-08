@@ -253,7 +253,7 @@ def run(url,proxies,verbosity,fpath,mode):
         for method in rep['paths'][path]:
             if method == "get":
                 # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
-                requests.get(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'} ,proxies=proxies)
+                requests.get(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'} ,proxies=proxies, verify=False)
                 get_methods = get_method(rep, path, method, url1)
                 if get_methods != False:
                     if 'get' in flag or (mode == "all"):
@@ -264,7 +264,7 @@ def run(url,proxies,verbosity,fpath,mode):
                         downloads.append(get_methods)
             else:
                 # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
-                requests.post(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'}, proxies=proxies)
+                requests.post(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'}, proxies=proxies, verify=False)
                 post_methods = post_method(rep, path, method, url1)
                 if post_methods != False:
                     if ('get' in flag) or (mode == "all"):
