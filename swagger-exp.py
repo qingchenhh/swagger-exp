@@ -58,6 +58,7 @@ def print_api(data):
 
 def Scanner(url,headers,method,proxies,verbosity,summary,data=""):
     if method == "get":
+        # print(headers)
         rep = requests.get(url,headers=headers,verify=False,proxies=proxies,allow_redirects=False)
     elif method == "options":
         rep = requests.options(url, headers=headers, verify=False, data=data, proxies=proxies,
@@ -92,38 +93,72 @@ def screen(path):
     return flag
 
 def get_definitions(data,definition,method):
-    definition = definition.replace('#/definitions/','')
     if method == "post":
         parameters = {}
-        for i in data['definitions']:
-            if i == definition:
-                for parameter in data['definitions'][i]['properties']:
-                    # print(parameter)
-                    try:
-                        ref = data['definitions'][i]['properties'][parameter]['$ref']
-                        parameters[parameter] = get_definitions(data,ref,'post')
-                    except Exception as e:
-                        if data['definitions'][i]['properties'][parameter]['type'] == "integer":
-                            parameters[parameter] = 1
-                        elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
-                            parameters[parameter] = 2.0
-                        elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
-                            parameters[parameter] = 'array'
-                        else:
-                            parameters[parameter] = "string"
+        if "#/definitions/" in definition:
+            definition = definition.replace('#/definitions/','')
+            for i in data['definitions']:
+                if i == definition:
+                    for parameter in data['definitions'][i]['properties']:
+                        # print(parameter)
+                        try:
+                            ref = data['definitions'][i]['properties'][parameter]['$ref']
+                            parameters[parameter] = get_definitions(data,ref,'post')
+                        except Exception as e:
+                            if data['definitions'][i]['properties'][parameter]['type'] == "integer":
+                                parameters[parameter] = 1
+                            elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
+                                parameters[parameter] = 2.0
+                            elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
+                                parameters[parameter] = 'array'
+                            else:
+                                parameters[parameter] = "string"
+        elif "#/components/schemas/" in definition:
+            definition = definition.replace('#/components/schemas/','')
+            for i in data['components']['schemas']:
+                if i == definition:
+                    for parameter in data['components']['schemas'][i]['properties']:
+                        # print(parameter)
+                        try:
+                            ref = data['components']['schemas'][i]['properties'][parameter]['$ref']
+                            parameters[parameter] = get_definitions(data,ref,'post')
+                        except Exception as e:
+                            if data['components']['schemas'][i]['properties'][parameter]['type'] == "integer":
+                                parameters[parameter] = 1
+                            elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'number':
+                                parameters[parameter] = 2.0
+                            elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'array':
+                                parameters[parameter] = 'array'
+                            else:
+                                parameters[parameter] = "string"
     elif method == "get":
         parameters = []
-        for i in data['definitions']:
-            if i == definition:
-                for parameter in data['definitions'][i]['properties']:
-                    if data['definitions'][i]['properties'][parameter]['type'] == "integer":
-                        parameters.append(parameter + "=1")
-                    elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
-                        parameters.append(parameter + "=2.0")
-                    elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
-                        parameters.append(parameter + "=array")
-                    else:
-                        parameters.append(parameter + "=string")
+        if "#/definitions/" in definition:
+            definition = definition.replace('#/definitions/','')
+            for i in data['definitions']:
+                if i == definition:
+                    for parameter in data['definitions'][i]['properties']:
+                        if data['definitions'][i]['properties'][parameter]['type'] == "integer":
+                            parameters.append(parameter + "=1")
+                        elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
+                            parameters.append(parameter + "=2.0")
+                        elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
+                            parameters.append(parameter + "=array")
+                        else:
+                            parameters.append(parameter + "=string")
+        elif method == "get":
+            definition = definition.replace('#/components/schemas/','')
+            for i in data['components']['schemas']:
+                if i == definition:
+                    for parameter in data['components']['schemas'][i]['properties']:
+                        if data['components']['schemas'][i]['properties'][parameter]['type'] == "integer":
+                            parameters.append(parameter + "=1")
+                        elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'number':
+                            parameters.append(parameter + "=2.0")
+                        elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'array':
+                            parameters.append(parameter + "=array")
+                        else:
+                            parameters.append(parameter + "=string")
     return parameters
 
 def get_method(rep,path,method,url1):
@@ -170,7 +205,7 @@ def get_method(rep,path,method,url1):
                             else:
                                 default_str = "string"
                         if  parameter['in'] == "header": # 参数位置在header
-                            headers[parameter['name']] = default_str
+                            headers[parameter['name']] = str(default_str)
                         else:
                             parameters.append(parameter['name'] + "=" + str(default_str))
                 new_url = url1 + path + '?' + '&'.join(parameters)
@@ -217,7 +252,7 @@ def post_method(rep,path,method,url1):
                     else:
                         default_str = "string"
                 if parameter['in'] == "header":
-                    headers[parameter['name']] = default_str
+                    headers[parameter['name']] = str(default_str)
                 else:
                     parameters[parameter['name']] = default_str
         if "application/json" in content_type:
