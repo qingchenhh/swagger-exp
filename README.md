@@ -14,6 +14,12 @@
 
 # 工具的使用
 
+使用前，使用以下命令安装依赖库。
+
+```
+pip install -r requirements.txt https://pypi.tuna.tsinghua.edu.cn/simple/ --trusted-host pypi.tuna.tsinghua.edu.cn
+```
+
 **正确食用方法：脚本+burp+HaE插件+Xray**
 
 用法：
