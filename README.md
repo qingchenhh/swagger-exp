@@ -1,20 +1,10 @@
 # swagger接口测试小脚本
 
-根据惯例呢，这里依然说一下，为啥写这个，平时看到swagger接口就会测测swagger接口有没有敏感数据泄露、未授权访问、或者sql注入之类的。但是那么多接口我看着就头大，于是就找了几个工具，主要是swagger-hack和swagger-exp，那说到这里，继续按照惯例推荐几个工具。
-
-一个是swagger-hack：https://github.com/jayus0821/swagger-hack
-
-另一个是swagger-exp：https://github.com/lijiejie/swagger-exp
-
-辅助工具：swagger-editor：https://github.com/swagger-api/swagger-editor
-
-但是呢，这两个工具我都不太敢用，是因为在测试swagger接口，有大量的接口其实都是增加、删除、修改接口，说实话谁敢测呀，比如删除用户的接口，要求传一个uid，你传一个uid=1过去，真把人家用户删了，那就真的很尬。**所以对于swagger接口的测试要谨慎！**，该脚本默认对api通过判断api接口名字是否包含get、select、search、query来判断是否是查询接口，只对查询接口做了测试。
+平时看到swagger接口就会测测swagger接口有没有敏感数据泄露、未授权访问、或者sql注入之类的。但是在测试swagger接口，有大量的接口其实都是增加、删除、修改接口，说实话谁敢测呀，比如删除用户的接口，要求传一个uid，你传一个uid=1过去，真把人家用户删了，那就真的很尬。**所以对于swagger接口的测试要谨慎！**，该脚本默认对api通过判断api接口名字是否包含get、select、search、query来判断是否是查询接口，只对查询接口做了测试。
 
 **如果要测所有的接口那么请使用`-m all`参数，生产环境不建议使用**。
 
-而且，我是想脚本可以走代理让xray啥的帮我测接口里的sql注入之类的，要手动测也可以那种。所以就自己写了一个垃圾脚本，不支持swagger-ui.html，看到swagger-ui.html，找一下api的json数据就可以用这个工具了。
-
-再说一遍**只支持/v2/api-docs这种json格式的，不支持swagger-ui.html这种html格式**
+而且，我是想脚本可以走代理让xray啥的帮我测接口里的sql注入之类的，要手动测也可以那种。所以就自己写了一个垃圾脚本，**不支持swagger-ui.html，看到swagger-ui.html，找一下api的json数据就可以用这个工具了。**
 
 **工具的优势：**
 1. 识别构造测试查询接口。
