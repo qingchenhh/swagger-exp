@@ -20,6 +20,7 @@ def args():
 
     return parser.parse_args()
 
+cookie = "admin"
 def print_raw(raw,url,type,host=""):
     print_str = ""
     if type=="req":
@@ -110,7 +111,7 @@ def get_definitions(data,definition,method):
                             elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
                                 parameters[parameter] = 2.0
                             elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
-                                parameters[parameter] = 'array'
+                                parameters[parameter] = '[]'
                             else:
                                 parameters[parameter] = "string"
         elif "#/components/schemas/" in definition:
@@ -128,7 +129,7 @@ def get_definitions(data,definition,method):
                             elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'number':
                                 parameters[parameter] = 2.0
                             elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'array':
-                                parameters[parameter] = 'array'
+                                parameters[parameter] = '[]'
                             else:
                                 parameters[parameter] = "string"
     elif method == "get":
@@ -143,7 +144,7 @@ def get_definitions(data,definition,method):
                         elif data['definitions'][i]['properties'][parameter]['type'] == 'number':
                             parameters.append(parameter + "=2.0")
                         elif data['definitions'][i]['properties'][parameter]['type'] == 'array':
-                            parameters.append(parameter + "=array")
+                            parameters.append(parameter + "=[]")
                         else:
                             parameters.append(parameter + "=string")
         elif method == "get":
@@ -156,7 +157,7 @@ def get_definitions(data,definition,method):
                         elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'number':
                             parameters.append(parameter + "=2.0")
                         elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'array':
-                            parameters.append(parameter + "=array")
+                            parameters.append(parameter + "=[]")
                         else:
                             parameters.append(parameter + "=string")
     return parameters
@@ -169,7 +170,8 @@ def get_method(rep,path,method,url1):
     parameters = []
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'Content-Type': content_type
+        'Content-Type': content_type,
+        'Cookie': cookie
     }
     try:
         summary = rep['paths'][path][method]['summary']
@@ -199,7 +201,10 @@ def get_method(rep,path,method,url1):
                             try:
                                 type = parameter['schema']['type'] # 3.0版本
                             except Exception as e:
-                                type = parameter['type'] # 2.0和1.0版本
+                                try:
+                                    type = parameter['type'] # 2.0和1.0版本
+                                except:
+                                    type = 'string'
                             if type == "integer":
                                 default_str = 1
                             else:
@@ -210,6 +215,7 @@ def get_method(rep,path,method,url1):
                             parameters.append(parameter['name'] + "=" + str(default_str))
                 new_url = url1 + path + '?' + '&'.join(parameters)
             except Exception as e:
+                # print(e)
                 new_url = url1 + path
         return new_url,headers,summary,"",method
     except Exception as e:
@@ -223,7 +229,8 @@ def post_method(rep,path,method,url1):
     parameters = {}
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'Content-Type': content_type
+        'Content-Type': content_type,
+        'Cookie': cookie
     }
     try:
         summary = rep['paths'][path][method]['summary']
@@ -272,7 +279,8 @@ def post_method(rep,path,method,url1):
 def run(url,proxies,verbosity,fpath,mode):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'content-type': 'application/json'
+        'content-type': 'application/json',
+        'Cookie': cookie
     }
     uploads = []
     downloads = []
