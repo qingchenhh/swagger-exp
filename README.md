@@ -25,7 +25,7 @@ pip install -r requirements.txt https://pypi.tuna.tsinghua.edu.cn/simple/ --trus
 用法：
 
 ```
-usage: swagger-exp.py [-h] -u URL [-p PROXY] [-v VERBOSITY] [-path PATH] [-m MODE]
+usage: swagger-exp.py [-h] -u URL [-p PROXY] [-v VERBOSITY] [-path PATH] [-cookie COOKIE] [-m MODE]
 
 options:
   -h, --help            show this help message and exit
@@ -36,6 +36,8 @@ options:
                         输出信息级别: 0 or 1 (default 0)
   -path PATH, --path PATH
                         指定路径，默认api是根路径拼接，如http://xxx.xx/user/api，但是实际路径可能是http://xxx.xx/admin/user/api，那么这个admin就需要该参数来指定。
+  -cookie COOKIE, --cookie COOKIE
+                        指定cookie
   -m MODE, --mode MODE  指定模式，默认是sec（只测试查询接口），也可以指定为all测试所有接口。
 ```
 
