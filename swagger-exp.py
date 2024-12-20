@@ -15,12 +15,12 @@ def args():
                         help="输出信息级别: 0 or 1 (default 0)")
     parser.add_argument('-path', '--path', dest="path", default='', type=str,
                         help="指定路径，默认api是根路径拼接，如http://xxx.xx/user/api，但是实际路径可能是http://xxx.xx/admin/user/api，那么这个admin就需要该参数来指定。")
+    parser.add_argument('-cookie', '--cookie', dest="cookie", default='', type=str, help="指定cookie")
     parser.add_argument('-m', '--mode', dest="mode", default='sec', type=str,
                         help="指定模式，默认是sec（只测试查询接口），也可以指定为all测试所有接口。")
 
     return parser.parse_args()
 
-cookie = "admin"
 def print_raw(raw,url,type,host=""):
     print_str = ""
     if type=="req":
@@ -162,17 +162,23 @@ def get_definitions(data,definition,method):
                             parameters.append(parameter + "=string")
     return parameters
 
-def get_method(rep,path,method,url1):
+def get_method(rep,path,method,url1,cookie):
     try:
         content_type = rep['paths'][path][method]['consumes'][0]
     except Exception as e:
         content_type = "text/html; charset=utf-8"
     parameters = []
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'Content-Type': content_type,
-        'Cookie': cookie
-    }
+    if cookie != '':
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+            'Content-Type': content_type,
+            'Cookie': cookie
+        }
+    else:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+            'Content-Type': content_type
+        }
     try:
         summary = rep['paths'][path][method]['summary']
     except Exception as e:
@@ -221,17 +227,23 @@ def get_method(rep,path,method,url1):
     except Exception as e:
         return False
 
-def post_method(rep,path,method,url1):
+def post_method(rep,path,method,url1,cookie):
     try:
         content_type = rep['paths'][path][method]['consumes'][0]
     except Exception as e:
         content_type = "text/html; charset=utf-8"
     parameters = {}
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'Content-Type': content_type,
-        'Cookie': cookie
-    }
+    if cookie != '':
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+            'Content-Type': content_type,
+            'Cookie': cookie
+        }
+    else:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+            'Content-Type': content_type
+        }
     try:
         summary = rep['paths'][path][method]['summary']
     except Exception as e:
@@ -276,12 +288,18 @@ def post_method(rep,path,method,url1):
         return False
         # print(Style.BRIGHT + Fore.RED + "[-] 出现一小个错误！POST参数，url为：" + url + path + " , Error Message：" ,e)
 
-def run(url,proxies,verbosity,fpath,mode):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'content-type': 'application/json',
-        'Cookie': cookie
-    }
+def run(url,proxies,verbosity,fpath,mode,cookie):
+    if cookie != '':
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+            'content-type': 'application/json',
+        }
+    else:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+            'content-type': 'application/json',
+            'Cookie': cookie
+        }
     uploads = []
     downloads = []
     rep = requests.get(url=url, verify=False, headers=headers).json()
@@ -297,7 +315,7 @@ def run(url,proxies,verbosity,fpath,mode):
             if method == "get":
                 # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
                 requests.get(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'} ,proxies=proxies, verify=False)
-                get_methods = get_method(rep, path, method, url1)
+                get_methods = get_method(rep, path, method, url1,cookie)
                 if get_methods != False:
                     if 'get' in flag or (mode == "all"):
                         Scanner(get_methods[0], get_methods[1], get_methods[4], proxies, verbosity, get_methods[2], url1 + path)
@@ -308,7 +326,7 @@ def run(url,proxies,verbosity,fpath,mode):
             else:
                 # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
                 requests.post(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'}, proxies=proxies, verify=False)
-                post_methods = post_method(rep, path, method, url1)
+                post_methods = post_method(rep, path, method, url1,cookie)
                 if post_methods != False:
                     if ('get' in flag) or (mode == "all"):
                         Scanner(post_methods[0], post_methods[1], post_methods[4], proxies, verbosity, post_methods[2], post_methods[3])
@@ -332,4 +350,4 @@ if __name__ == '__main__':
     args = args()
     url = args.url if args.url[-1]!='/' else args.url[:-1]
     proxies = {'http': args.proxy, 'https': args.proxy}
-    run(url,proxies,args.verbosity,args.path,args.mode)
+    run(url,proxies,args.verbosity,args.path,args.mode,args.cookie)
