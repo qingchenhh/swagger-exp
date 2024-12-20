@@ -1,5 +1,6 @@
 import json
 import re
+from requests.exceptions import JSONDecodeError
 import requests
 import argparse
 from colorama import init,Fore,Style
@@ -121,17 +122,27 @@ def get_definitions(data,definition,method):
                     for parameter in data['components']['schemas'][i]['properties']:
                         # print(parameter)
                         try:
-                            ref = data['components']['schemas'][i]['properties'][parameter]['$ref']
-                            parameters[parameter] = get_definitions(data,ref,'post')
-                        except Exception as e:
-                            if data['components']['schemas'][i]['properties'][parameter]['type'] == "integer":
-                                parameters[parameter] = 1
-                            elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'number':
-                                parameters[parameter] = 2.0
-                            elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'array':
-                                parameters[parameter] = '[]'
-                            else:
-                                parameters[parameter] = "string"
+                            test1 = data['components']['schemas'][i]['properties'][parameter]
+                            ref1 = test1[list(test1.keys())[0]][0]['$ref']
+                            # print(ref1)
+                            parameters[parameter] = get_definitions(data, ref1, 'post')
+                        except Exception as ee:
+                            # print(ee)
+                            try:
+                                ref = data['components']['schemas'][i]['properties'][parameter]['$ref']
+                                parameters[parameter] = get_definitions(data,ref,'post')
+                            except Exception as e:
+                                try:
+                                    if data['components']['schemas'][i]['properties'][parameter]['type'] == "integer":
+                                        parameters[parameter] = 1
+                                    elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'number':
+                                        parameters[parameter] = 2.0
+                                    elif data['components']['schemas'][i]['properties'][parameter]['type'] == 'array':
+                                        parameters[parameter] = '[]'
+                                    else:
+                                        parameters[parameter] = "string"
+                                except Exception as type_e:
+                                    parameters[parameter] = "string"
     elif method == "get":
         parameters = []
         if "#/definitions/" in definition:
@@ -213,6 +224,8 @@ def get_method(rep,path,method,url1,cookie):
                                     type = 'string'
                             if type == "integer":
                                 default_str = 1
+                            elif type == "array":
+                                default_str = '[]'
                             else:
                                 default_str = "string"
                         if  parameter['in'] == "header": # 参数位置在header
@@ -248,7 +261,17 @@ def post_method(rep,path,method,url1,cookie):
         summary = rep['paths'][path][method]['summary']
     except Exception as e:
         summary = ""
+    parameters1 = {}
     try:
+        # 3.0的另一种形式
+        try:
+            content = rep['paths'][path][method]['requestBody']['content']
+            headers['Content-Type'] = list(content.keys())[0] # 获取第一个key
+            definition1 = rep['paths'][path][method]['requestBody']['content'][list(content.keys())[0]]['schema']['$ref']
+            parameters1 = get_definitions(rep, definition1, 'post')
+        except Exception as e:
+            # print(e)
+            pass
         try:
             definition = rep['paths'][path][method]['parameters'][0]['schema']['$ref']
         except Exception as e:
@@ -256,25 +279,34 @@ def post_method(rep,path,method,url1,cookie):
         if definition != "":
             parameters = get_definitions(rep, definition, 'post')
         else:
-            for parameter in rep['paths'][path][method]['parameters']:
-                try:
-                    default_str = parameter['default']
-                except Exception as e:
+            # 如果没有任何参数，报错，则忽略。
+            try:
+                for parameter in rep['paths'][path][method]['parameters']:
                     try:
-                        type = parameter['schema']['type'] # 3.0版本
+                        default_str = parameter['default']
                     except Exception as e:
-                        type = parameter['type'] # 2.0和1.0版本
-                    if type == "integer":
-                        default_str = 1
-                    elif type == 'number':
-                        default_str = 2.0
+                        try:
+                            type = parameter['schema']['type'] # 3.0版本
+                        except Exception as e:
+                            try:
+                                type = parameter['type'] # 2.0和1.0版本
+                            except Exception as e:
+                                type = "string"
+                        if type == "integer":
+                            default_str = 1
+                        elif type == 'number':
+                            default_str = 2.0
+                        else:
+                            default_str = "string"
+                    if parameter['in'] == "header":
+                        headers[parameter['name']] = str(default_str)
                     else:
-                        default_str = "string"
-                if parameter['in'] == "header":
-                    headers[parameter['name']] = str(default_str)
-                else:
-                    parameters[parameter['name']] = default_str
-        if "application/json" in content_type:
+                        parameters[parameter['name']] = default_str
+            except Exception as pe:
+                pass
+        if parameters1 :
+            parameters = parameters1.copy()
+        if "application/json" in headers['Content-Type']:
             data = json.dumps(parameters)
         else:
             data = ""
@@ -284,7 +316,6 @@ def post_method(rep,path,method,url1,cookie):
         new_url = url1 + path
         return new_url,headers,summary,data,method
     except Exception as e:
-        # print(e)
         return False
         # print(Style.BRIGHT + Fore.RED + "[-] 出现一小个错误！POST参数，url为：" + url + path + " , Error Message：" ,e)
 
@@ -302,7 +333,15 @@ def run(url,proxies,verbosity,fpath,mode,cookie):
         }
     uploads = []
     downloads = []
-    rep = requests.get(url=url, verify=False, headers=headers).json()
+    try:
+        rep = requests.get(url=url, verify=False, headers=headers).json()
+    except JSONDecodeError:
+        print(Style.BRIGHT + Fore.RED + "[-] 不是有效的json接口。")
+        exit()
+    except Exception as e:
+        print(Style.BRIGHT + Fore.RED + "[-] 程序出错了,异常信息如下：")
+        print(e)
+        exit()
     url1 = re.findall('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]',url)[0]
     url1 = url1.rstrip('/')
     if fpath != "":
@@ -312,6 +351,7 @@ def run(url,proxies,verbosity,fpath,mode,cookie):
         if (flag == []) and (mode != "all"):
             continue
         for method in rep['paths'][path]:
+            # print(path,method)
             if method == "get":
                 # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
                 requests.get(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'} ,proxies=proxies, verify=False)
