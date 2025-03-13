@@ -51,7 +51,7 @@ python swagger-exp.py -u http://xxx.xxx.xxx.xxx/v2/api-docs -p http://127.0.0.1:
 
 就是这样用，这样代理转到burp以后呢，burp联动xray，当然你也可以直接给xray，但是这里我是推荐先给burp的，然后再给xray。
 
-以为burp你可以使用HaE工具，这样做如果接口返回有敏感信息，就可以看到颜色高亮，方便一些。工具地址https://github.com/gh0stkey/HaE
+因为burp你可以使用HaE等类似工具，这样做如果接口返回有敏感信息，就可以看到颜色高亮，方便一些。工具地址https://github.com/gh0stkey/HaE
 
 同时呢，如果你需要手动测试，可以把你想测试的请求再burp的HTTP history中发送到Repeater进行手动测试。
 
