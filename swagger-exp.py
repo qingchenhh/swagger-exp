@@ -11,7 +11,6 @@ import warnings
 warnings.filterwarnings('ignore')
 
 send_data_list = []
-ILLEGAL_CHARACTERS_RE = re.compile(r'[\000-\010]|[\013-\014]|[\016-\037]')
 
 def args():
     parser = argparse.ArgumentParser()
@@ -92,7 +91,7 @@ def Scanner(url,headers,method,proxies,summary,data=""):
         send_data_list.append([url, summary, "请求错误！", "请求错误！", "请求错误！请求URL："+url+" ，报错信息：" + str(e), "请求错误！请求URL："+url+" ，报错信息：" + str(e)])
         return False
 
-    print(Style.BRIGHT + Fore.YELLOW + '[*] ' + url + "  [" + str(rep.status_code) + "]")
+    print(Style.BRIGHT + Fore.YELLOW + '[*] ' + url + "  [code:" + str(rep.status_code) + "]" + "   [size:" + str(len(rep.text)) + "]")
     ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z-]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', url)
     host = ret.group('host')
     req_data = print_raw(rep.request.__dict__,'/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url),type='req',host=host)
