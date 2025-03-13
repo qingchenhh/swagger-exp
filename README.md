@@ -7,10 +7,11 @@
 而且，我是想脚本可以走代理让xray啥的帮我测接口里的sql注入之类的，要手动测也可以那种。所以就自己写了一个垃圾脚本，**不支持swagger-ui.html，看到swagger-ui.html，找一下api的json数据就可以用这个工具了。**
 
 **工具的优势：**
-1. 识别构造测试查询接口。
-2. 简单，依赖库少，只依赖requests库和colorama库，不需要调用浏览器解析而产生一些浏览器相关的错误。
-3. 识别显示上传接口和下载接口，告诉使用者，哪些接口可能是上传接口和下载接口，方便使用者自己构造测试。
+
+2. 简单，依赖库少，只依赖requests库、openpyxl库和colorama库，不需要调用浏览器解析而产生一些浏览器相关的错误。
+3. 识别显示上传接口、下载接口和用户接口，告诉使用者，哪些接口可能是上传接口和下载接口，方便使用者自己构造测试。
 4. 执行一次不带参数请求，因为带有参数都是垃圾参数，为了避免带有垃圾参数差不到数据，而不带参数请求能获取到未授权数据的情况。
+4. 把所有接口分类保存到xlsx文档，没有自动测试的非查询接口可以到xlsx中查看，然后自己手动测试。
 
 # 工具的使用
 
@@ -25,23 +26,20 @@ pip install -r requirements.txt https://pypi.tuna.tsinghua.edu.cn/simple/ --trus
 用法：
 
 ```
-usage: swagger-exp.py [-h] -u URL [-p PROXY] [-v VERBOSITY] [-path PATH] [-cookie COOKIE] [-m MODE]
+usage: swagger-exp.py [-h] -u URL [-p PROXY] [-path PATH] [-cookie COOKIE] [-m MODE]
 
 options:
   -h, --help            show this help message and exit
   -u URL, --url URL     指定测试的URL(e.g. -u http://127.0.0.1/v2/api-docs)
   -p PROXY, --proxy PROXY
                         设置代理(e.g. -p http://127.0.0.1:8080)
-  -v VERBOSITY, --verbosity VERBOSITY
-                        输出信息级别: 0 or 1 (default 0)
   -path PATH, --path PATH
-                        指定路径，默认api是根路径拼接，如http://xxx.xx/user/api，但是实际路径可能是http://xxx.xx/admin/user/api，那么这个admin就需要该参数来指定。
+                        指定路径，默认api是根路径拼接，如http://xxx.xx/user/api，但是实际路径可能是http://xxx.xx/admin/user/api，那么这个admin就需要该参数
+                        来指定。
   -cookie COOKIE, --cookie COOKIE
                         指定cookie
   -m MODE, --mode MODE  指定模式，默认是sec（只测试查询接口），也可以指定为all测试所有接口。
 ```
-
-![1709124848563](images/1709124848563.png)
 
 一般怎么用好呢？
 
@@ -49,29 +47,23 @@ options:
 python swagger-exp.py -u http://xxx.xxx.xxx.xxx/v2/api-docs -p http://127.0.0.1:8080
 ```
 
-就是这样用，这样代理转到burp以后呢，burp联动xray，当然你也可以直接给xray，但是这里我是推荐先给burp的，然后再给xray。
+![1741853330292](images/1741853330292.png)
 
-因为burp你可以使用HaE等类似工具，这样做如果接口返回有敏感信息，就可以看到颜色高亮，方便一些。工具地址https://github.com/gh0stkey/HaE
+执行结束后会把所有的结果分类保存到xlsx文件中。
 
-同时呢，如果你需要手动测试，可以把你想测试的请求再burp的HTTP history中发送到Repeater进行手动测试。
+![1741853413323](images/1741853413323.png)
 
-![1680164449597](images/1680164449597.png)
+最好结合burp进行使用，如果想再继续挂xray测试也行，因为默认测试的是查询接口，一般不会对系统进行增删改操作。
+
+burp你可以使用HaE等类似工具，这样做如果接口返回有敏感信息，就可以看到颜色高亮，方便一些。工具地址：https://github.com/gh0stkey/HaE
+
+同时，如果你需要手动测试，可以把你想测试的请求再burp的HTTP history中发送到Repeater进行手动测试。
 
 ![1680165825426](images/1680165825426.png)
 
+另外，因为脚本是自动拿出参数来，然后参数值是随便填的，就会导致有可能带有参数的时候没啥数据，而不带参数反而有数据。
 
-
-当然啦，如果你想再脚本中直接显示更详细的信息你就加个-v参数。
-
-```
-python swagger-exp.py -u http://xxx.xxx.xxx.xxx/v2/api-docs -p http://127.0.0.1:8080 -v 1
-```
-
-![1709131815098](images/1709131815098.png)
-
-还有一种情况，因为脚本是自动拿出参数来，然后参数值是随便填的，就会导致有可能带有参数的时候没啥数据，而不带参数反而有数据。
-
-针对这种情况，脚本在请求带参请求之前会做一次不带参请求，但是这个请求`-v 1`参数是不显示，只有代理的burp中才能看得到数据历史，因此非常建议大家用该脚本的时候配合burp+HaE插件+xray使用。
+针对这种情况，脚本在请求带参请求之前会做一次不带参请求，但是只有代理的burp中才能看得到数据，xlsx文件中不记录，**因此非常建议大家用该脚本的时候结合burp使用，最好再结合使用HaE等类似插件。**
 
 ![1709130165464](images/1709130165464.png)
 

@@ -1,19 +1,22 @@
 import json
 import re
 from requests.exceptions import JSONDecodeError
+from openpyxl import Workbook,load_workbook
 import requests
 import argparse
+import base64
 from colorama import init,Fore,Style
 
 import warnings
 warnings.filterwarnings('ignore')
 
+send_data_list = []
+ILLEGAL_CHARACTERS_RE = re.compile(r'[\000-\010]|[\013-\014]|[\016-\037]')
+
 def args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-u','--url',dest="url",required=True, type=str,help="指定测试的URL(e.g. -u http://127.0.0.1/v2/api-docs)")
     parser.add_argument('-p', '--proxy', dest="proxy", type=str,help="设置代理(e.g. -p http://127.0.0.1:8080)")
-    parser.add_argument('-v', '--verbosity', dest="verbosity", default='0', type=str,
-                        help="输出信息级别: 0 or 1 (default 0)")
     parser.add_argument('-path', '--path', dest="path", default='', type=str,
                         help="指定路径，默认api是根路径拼接，如http://xxx.xx/user/api，但是实际路径可能是http://xxx.xx/admin/user/api，那么这个admin就需要该参数来指定。")
     parser.add_argument('-cookie', '--cookie', dest="cookie", default='', type=str, help="指定cookie")
@@ -25,7 +28,7 @@ def args():
 def print_raw(raw,url,type,host=""):
     print_str = ""
     if type=="req":
-        print('>>>>>请求包>>>>>')
+        # print('>>>>>请求包>>>>>')
         print_str += raw['method'] + " " + url + " HTTP/1.1\n"
         print_str += "Host: " + host + "\n"
         headers = raw['headers']
@@ -36,50 +39,65 @@ def print_raw(raw,url,type,host=""):
         else:
             print_str += "\n"
     elif type=="rep":
-        print('<<<<<响应包<<<<<')
+        # print('<<<<<响应包<<<<<')
         print_str += "HTTP/1.1 " + str(raw['status_code']) + "\n"
         headers = raw['headers']
         for key, values in headers.items():
             print_str += key + ": " + values + "\n"
-        print_str += "\n" + raw['_content'].decode('utf-8')
-    print(print_str)
+        # print(raw['_content'])
+        try:
+            print_str += "\n" + raw['_content'].decode('utf-8')
+        except Exception as e:
+            print(Style.BRIGHT + Fore.RED + "[-] 响应包内容可能为二进制文件数据，因此做了base64编码输出：")
+            base64_str = base64.b64encode(raw['_content']).decode('utf-8')
+            print_str += "\n" + "响应包内容可能为二进制文件数据，因此做了base64编码输出：\n" + base64_str
+
+    # print(print_str)
+    return print_str
 
 def print_api(data):
+    tmp_data = []
     for api_data in data:
-        print("========================\n接口：" + api_data[0])
-        print("描述：" + api_data[2])
-        print("请求包：")
-        ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', api_data[0])
+        # print("========================\n接口：" + api_data[0])
+        # print("描述：" + api_data[2])
+        # print("请求包：")
+        ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z-]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', api_data[0])
         host = ret.group('host')
-        print_str = api_data[4].upper() + " " + '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',api_data[0]) + " HTTP/1.1\n"
+        print_str = api_data[4].upper() + " " + '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z-]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',api_data[0]) + " HTTP/1.1\n"
         print_str += "Host: " + host + "\n"
         for key, values in api_data[1].items():
             print_str += key + ": " + values + "\n"
         print_str += "\n" + api_data[3]
-        print(print_str)
+        tmp_data.append([api_data[0],api_data[2],print_str])
+        # print(print_str)
+    return tmp_data
 
-def Scanner(url,headers,method,proxies,verbosity,summary,data=""):
-    if method == "get":
-        # print(headers)
-        rep = requests.get(url,headers=headers,verify=False,proxies=proxies,allow_redirects=False)
-    elif method == "options":
-        rep = requests.options(url, headers=headers, verify=False, data=data, proxies=proxies,
-                               allow_redirects=False)
-    elif method == "put" and (args.mode == "all"):
-        rep = requests.put(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
-    elif method == "post":
-        rep = requests.post(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
-    else:
-        print(Style.BRIGHT + Fore.RED + "[-] 暂不支持的请求类型！请求类型为：" + method)
+def Scanner(url,headers,method,proxies,summary,data=""):
+    try:
+        if method == "get":
+            # print(headers)
+            rep = requests.get(url,headers=headers,verify=False,proxies=proxies,allow_redirects=False)
+        elif method == "options":
+            rep = requests.options(url, headers=headers, verify=False, data=data, proxies=proxies,
+                                   allow_redirects=False)
+        elif method == "put" and (args.mode == "all"):
+            rep = requests.put(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
+        elif method == "post":
+            rep = requests.post(url, headers=headers, verify=False, data=data, proxies=proxies, allow_redirects=False)
+        else:
+            print(Style.BRIGHT + Fore.RED + "[-] 暂不支持的请求类型！请求类型为：" + method)
+            return False
+    except Exception as e:
+        print(Style.BRIGHT + Fore.RED + "[-] 请求错误！请求URL："+url+" ，报错信息：" + str(e))
+        send_data_list.append([url, summary, "请求错误！", "请求错误！", "请求错误！请求URL："+url+" ，报错信息：" + str(e), "请求错误！请求URL："+url+" ，报错信息：" + str(e)])
         return False
-    if verbosity == '1':
-        print(Style.BRIGHT + Fore.GREEN + '[+] =========' + url + '=========')
-        ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', url)
-        host = ret.group('host')
-        print_raw(rep.request.__dict__,'/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url),type='req',host=host)
-        print_raw(rep.__dict__, '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url), type='rep')
-    else:
-        print(Style.BRIGHT + Fore.GREEN + '[+] 发送一条'+ method.upper() +'请求，' + ' URL：' + url + ' ，响应状态码：'+ str(rep.status_code))
+
+    print(Style.BRIGHT + Fore.YELLOW + '[*] ' + url + "  [" + str(rep.status_code) + "]")
+    ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z-]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', url)
+    host = ret.group('host')
+    req_data = print_raw(rep.request.__dict__,'/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url),type='req',host=host)
+    rep_data = print_raw(rep.__dict__, '/'+re.sub('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]','',url), type='rep')
+    send_data_list.append([url,summary,str(rep.status_code),str(len(rep.text)),req_data,rep_data])
 
 def screen(path):
     str = path.lower()
@@ -92,6 +110,8 @@ def screen(path):
             flag.append('upload')
         elif i.find('download') != -1 or i.find('filedownload') != -1 or i.find('downloadfile') != -1 or i.find('downloads') != -1:
             flag.append('download')
+        elif i.find('adduser') != -1 or i.find('useradd') != -1 or i.find('rest-pwd') != -1 or i.find('register') != -1 or i.find('password') != -1 or i.find('updatepwd') != -1 or i.find('changepwd') != -1 or (i=="user"):
+            flag.append('user')
     return flag
 
 def get_definitions(data,definition,method):
@@ -319,7 +339,7 @@ def post_method(rep,path,method,url1,cookie):
         return False
         # print(Style.BRIGHT + Fore.RED + "[-] 出现一小个错误！POST参数，url为：" + url + path + " , Error Message：" ,e)
 
-def run(url,proxies,verbosity,fpath,mode,cookie):
+def run(url,proxies,fpath,mode,cookie):
     if cookie != '':
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
@@ -331,8 +351,11 @@ def run(url,proxies,verbosity,fpath,mode,cookie):
             'content-type': 'application/json',
             'Cookie': cookie
         }
+    send_data_list.append(['URL','接口描述','状态码','响应包大小','请求包','响应包'])
     uploads = []
     downloads = []
+    all_list = []
+    user_list = []
     try:
         rep = requests.get(url=url, verify=False, headers=headers).json()
     except JSONDecodeError:
@@ -342,52 +365,93 @@ def run(url,proxies,verbosity,fpath,mode,cookie):
         print(Style.BRIGHT + Fore.RED + "[-] 程序出错了,异常信息如下：")
         print(e)
         exit()
-    url1 = re.findall('^http[s]?://.+\.[0-9a-zA-Z]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]',url)[0]
+    url1 = re.findall('^http[s]?://.+\.[0-9a-zA-Z-]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?[/]',url)[0]
+    ret = re.search('^http[s]?://(?P<host>.+\.[0-9a-zA-Z-]+[:]?[1-6]?[0-9]?[0-9]?[0-9]?[0-9]?)[/]', url)
+    host = ret.group('host')
+    filename = host.replace(':','-')
     url1 = url1.rstrip('/')
     if fpath != "":
         url1 = url1 + '/' + fpath
     for path in rep['paths']:
         flag = screen(path)
-        if (flag == []) and (mode != "all"):
-            continue
+        # if (flag == []) and (mode != "all"):
+        #     continue
         for method in rep['paths'][path]:
             # print(path,method)
             if method == "get":
-                # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
-                requests.get(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'} ,proxies=proxies, verify=False)
                 get_methods = get_method(rep, path, method, url1,cookie)
                 if get_methods != False:
+                    all_list.append(get_methods)
                     if 'get' in flag or (mode == "all"):
-                        Scanner(get_methods[0], get_methods[1], get_methods[4], proxies, verbosity, get_methods[2], url1 + path)
+                        # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
+                        requests.get(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'} ,proxies=proxies, verify=False)
+                        Scanner(get_methods[0], get_methods[1], get_methods[4], proxies, get_methods[2], url1 + path)
                     if 'upload' in flag:
                         uploads.append(get_methods)
                     if 'download' in flag:
                         downloads.append(get_methods)
+                    if 'user' in flag:
+                        user_list.append(get_methods)
             else:
-                # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
-                requests.post(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'}, proxies=proxies, verify=False)
                 post_methods = post_method(rep, path, method, url1,cookie)
                 if post_methods != False:
+                    all_list.append(post_methods)
                     if ('get' in flag) or (mode == "all"):
-                        Scanner(post_methods[0], post_methods[1], post_methods[4], proxies, verbosity, post_methods[2], post_methods[3])
+                        # 防止乱带参数而没有查询到数据，直接访问接口反而有数据的情况，不过要有brup代理才看得到。
+                        if method == "post":
+                            requests.post(url1 + path,headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36'}, proxies=proxies, verify=False)
+                        Scanner(post_methods[0], post_methods[1], post_methods[4], proxies, post_methods[2], post_methods[3])
                     if 'upload' in flag:
                         uploads.append(post_methods)
                     if 'download' in flag:
                         downloads.append(post_methods)
+                    if 'user' in flag:
+                        user_list.append(post_methods)
             # else:
             #     print(Style.BRIGHT + Fore.RED + "[-] 请求方法既不是GET也不是POST！")
-
+    # 创建一个工作簿
+    wb = Workbook()
+    # 选择要写入数据的工作表
+    ws = wb.active
+    # 修改第一个表的标题
+    ws.title = "自动化测试的查询接口"
+    # 写入数据
+    for input_data in send_data_list:
+        ws.append(input_data)
     if uploads != []:
-        print(Style.BRIGHT + Fore.GREEN + "\n[+] ===发现疑似上传接口！请人为验证并手动利用。===")
-        print(Style.BRIGHT + Fore.GREEN + "[+] !!!注意！文件上传构造的数据包并不准确，需要手动构造。!!!")
-        print_api(uploads)
+        sheet1 = wb.create_sheet(title="疑似上传接口")
+        sheet1.append(['!!!注意！文件上传构造的数据包并不准确，需要手动构造。!!!'])
+        sheet1.append(['接口','接口描述','构造的请求包'])
+        tmp_data = print_api(uploads)
+        for tmp in tmp_data:
+            sheet1.append(tmp)
     if downloads != []:
-        print(Style.BRIGHT + Fore.GREEN + "\n[+] ===发现疑似下载接口！请人为验证并手动利用。===")
-        print_api(downloads)
+        sheet2 = wb.create_sheet(title="疑似下载接口")
+        sheet2.append(['接口', '接口描述', '构造的请求包'])
+        tmp_data = print_api(downloads)
+        for tmp in tmp_data:
+            sheet2.append(tmp)
+    if user_list != []:
+        sheet3 = wb.create_sheet(title="疑似用户相关接口")
+        sheet3.append(['接口', '接口描述', '构造的请求包'])
+        tmp_data = print_api(user_list)
+        for tmp in tmp_data:
+            sheet3.append(tmp)
+    if all_list != []:
+        sheet4 = wb.create_sheet(title="所有接口")
+        sheet4.append(['接口', '接口描述', '构造的请求包'])
+        tmp_data = print_api(all_list)
+        for tmp in tmp_data:
+            sheet4.append(tmp)
+    # 保存
+    wb.save(filename=filename+".xlsx")
+    # 关闭表格
+    wb.close()
+    print(Style.BRIGHT + Fore.GREEN + '\n[+] 所有结果已保存到'+filename+".xlsx文件中。")
 
 if __name__ == '__main__':
     init(autoreset=True)
     args = args()
     url = args.url if args.url[-1]!='/' else args.url[:-1]
     proxies = {'http': args.proxy, 'https': args.proxy}
-    run(url,proxies,args.verbosity,args.path,args.mode,args.cookie)
+    run(url,proxies,args.path,args.mode,args.cookie)
